@@ -1,7 +1,7 @@
 import 'dotenv/config';
-import { createConnection } from 'mysql2';
+import { createConnection } from 'mysql2/promise';
 
-export const connection = createConnection({
+export const connection = await createConnection({
   host: process.env.HOST,
   user: process.env.USER_DB,
   password: process.env.PASSWORD_DB,

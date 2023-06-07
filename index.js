@@ -1,3 +1,4 @@
+import { error } from "console";
 import { connection } from "./database.js";
 import Highcharts from 'highcharts';
 
@@ -14,10 +15,9 @@ const closeConnectionDb = () => {
   });
 };
 
-const sql = `SELECT * FROM ${tabName} WHERE request_time > '2023-06-07 10:02:02' LIMIT 4;`;
-connection.query(sql, function (err, result) {
-  if (err) throw err;
-  console.log(result);
-});
+const sql = `SELECT runtime, ROUND(temperature_2m, 2) AS temp FROM ${tabName} WHERE request_time = "2023-06-07 10:02:02" AND model = "best_match" ORDER BY runtime`;
+const [results] = await connection.execute(sql).catch(error => { throw error });
+
+results.forEach(v => console.log(v));
 
 closeConnectionDb();
