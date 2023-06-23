@@ -26,25 +26,56 @@ export const query = async (model, reqTime) => {
   console.log("start");
   // db table name
   const tabName = "data";
-  const sql = `SELECT
+  let str = "";
+  const dataFromFront = [
+    { model: "hmn", requestTime: "2023-06-23 12:00:01" },
+    { model: "best_match", requestTime: "2023-06-23 12:00:01" },
+    { model: "ecmwf_ifs04", requestTime: "2023-06-23 12:00:01" },
+    { model: "gem_global", requestTime: "2023-06-23 12:00:01" },
+    { model: "gfs_global", requestTime: "2023-06-23 12:00:01" },
+    { model: "icon_eu", requestTime: "2023-06-23 12:00:01" },
+    { model: "icon_global", requestTime: "2023-06-23 12:00:01" },
+    { model: "jma_gsm", requestTime: "2023-06-23 12:00:01" },
+    { model: "meteofrance_arpege_europe", requestTime: "2023-06-23 12:00:01" },
+    { model: "meteofrance_arpege_world", requestTime: "2023-06-23 12:00:01" },
+  ];
+  dataFromFront.forEach(
+    ({ model, requestTime }) =>
+      (str += `(request_time="${requestTime}" AND model="${model}") OR `)
+  );
+  str = str.slice(0, -4);
+  const sql = `
+    SELECT
       request_time,
       runtime,
       ROUND(temperature_2m, 2) AS temp,
       model
     FROM
-      data
+      ${tabName}
     WHERE
-      (request_time = '2023-06-19 12:00:02' AND model='hmn')
-      OR
-      (request_time = '2023-06-19 12:00:02' AND model='ecmwf_ifs04')
-      OR
-      (request_time = '2023-06-19 18:00:02' AND model='icon_global')
-      OR
-      (request_time = '2023-06-20 00:00:02' AND model='icon_global')
-      OR
-      (request_time = '2023-06-20 06:00:02' AND model='hmn')
+      ${str}
     ORDER BY
-      runtime`;
+      runtime
+      `;
+  // const sql = `SELECT
+  //     request_time,
+  //     runtime,
+  //     ROUND(temperature_2m, 2) AS temp,
+  //     model
+  //   FROM
+  //     ${tabName}
+  //   WHERE
+  //     (request_time = '2023-06-19 12:00:02' AND model='hmn')
+  //     OR
+  //     (request_time = '2023-06-19 12:00:02' AND model='ecmwf_ifs04')
+  //     OR
+  //     (request_time = '2023-06-19 18:00:02' AND model='icon_global')
+  //     OR
+  //     (request_time = '2023-06-20 00:00:02' AND model='icon_global')
+  //     OR
+  //     (request_time = '2023-06-20 06:00:02' AND model='hmn')
+  //   ORDER BY
+  //     runtime`;
   // const sqlOld = `SELECT runtime, ROUND(temperature_2m, 2) AS temp, model FROM ${tabName} WHERE request_time = '${reqTime}' AND model IN ("best_match", "hmn", "icon_global", "gfs_global", "ecmwf_ifs04") ORDER BY runtime`;
   const [rows] = await connection.execute(sql).catch((error) => {
     throw error;
