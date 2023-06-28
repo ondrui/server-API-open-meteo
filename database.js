@@ -2,15 +2,15 @@ import "dotenv/config";
 import { createConnection } from "mysql2/promise";
 
 const model = "best_match, hmn";
-const reqTime = "2023-06-22 06:00:02";
+const runTime = "2023-06-22 06:00:02";
 
 /**
  * Function query data mysql.
  * @param model Weather model name.
- * @param reqTime API request time.
+ * @param runTime API runtime.
  * @returns Data object.
  */
-export const query = async (model, reqTime) => {
+export const query = async (model) => {
   const connection = await createConnection({
     host: process.env.HOST,
     user: process.env.USER_DB,
@@ -28,26 +28,26 @@ export const query = async (model, reqTime) => {
   const tabName = "data";
   let str = "";
   const dataFromFront = [
-    { model: "hmn", requestTime: "2023-06-23 12:00:01" },
-    { model: "best_match", requestTime: "2023-06-23 12:00:01" },
-    { model: "ecmwf_ifs04", requestTime: "2023-06-23 12:00:01" },
-    { model: "gem_global", requestTime: "2023-06-23 12:00:01" },
-    { model: "gfs_global", requestTime: "2023-06-23 12:00:01" },
-    { model: "icon_eu", requestTime: "2023-06-23 12:00:01" },
-    { model: "icon_global", requestTime: "2023-06-23 12:00:01" },
-    { model: "jma_gsm", requestTime: "2023-06-23 12:00:01" },
-    { model: "meteofrance_arpege_europe", requestTime: "2023-06-23 12:00:01" },
-    { model: "meteofrance_arpege_world", requestTime: "2023-06-23 12:00:01" },
+    { model: "hmn", runTime: "2023-06-27 06:00:02" },
+    { model: "best_match", runTime: "2023-06-27 06:00:02" },
+    { model: "ecmwf_ifs04", runTime: "2023-06-27 06:00:02" },
+    { model: "gem_global", runTime: "2023-06-27 06:00:02" },
+    { model: "gfs_global", runTime: "2023-06-27 06:00:02" },
+    { model: "icon_eu", runTime: "2023-06-27 06:00:02" },
+    { model: "icon_global", runTime: "2023-06-27 06:00:02" },
+    { model: "jma_gsm", runTime: "2023-06-27 06:00:02" },
+    { model: "meteofrance_arpege_europe", runTime: "2023-06-27 06:00:02" },
+    { model: "meteofrance_arpege_world", runTime: "2023-06-27 06:00:02" },
   ];
-  dataFromFront.forEach(
-    ({ model, requestTime }) =>
-      (str += `(request_time="${requestTime}" AND model="${model}") OR `)
-  );
+  // dataFromFront.forEach(
+  //   ({ model, runTime }) =>
+  //     (str += `(runtime="${runTime}" AND model="${model}") OR `)
+  // );
   str = str.slice(0, -4);
-  const sql = `
+  const sqlModelRuntime = `
     SELECT
-      request_time,
       runtime,
+      forecast_time,
       ROUND(temperature_2m, 2) AS temp,
       model
     FROM
@@ -55,36 +55,40 @@ export const query = async (model, reqTime) => {
     WHERE
       ${str}
     ORDER BY
-      runtime
+      forecast_time
       `;
-  // const sql = `SELECT
-  //     request_time,
-  //     runtime,
-  //     ROUND(temperature_2m, 2) AS temp,
-  //     model
-  //   FROM
-  //     ${tabName}
-  //   WHERE
-  //     (request_time = '2023-06-19 12:00:02' AND model='hmn')
-  //     OR
-  //     (request_time = '2023-06-19 12:00:02' AND model='ecmwf_ifs04')
-  //     OR
-  //     (request_time = '2023-06-19 18:00:02' AND model='icon_global')
-  //     OR
-  //     (request_time = '2023-06-20 00:00:02' AND model='icon_global')
-  //     OR
-  //     (request_time = '2023-06-20 06:00:02' AND model='hmn')
-  //   ORDER BY
-  //     runtime`;
-  // const sqlOld = `SELECT runtime, ROUND(temperature_2m, 2) AS temp, model FROM ${tabName} WHERE request_time = '${reqTime}' AND model IN ("best_match", "hmn", "icon_global", "gfs_global", "ecmwf_ifs04") ORDER BY runtime`;
-  const [rows] = await connection.execute(sql).catch((error) => {
+
+  const sqlModelPoint = `SELECT
+      runtime,
+      forecast_time,
+      ROUND(temperature_2m, 2) AS temp,
+      model
+    FROM
+      ${tabName}
+    WHERE
+      (forecast_time = '2023-06-27 10:00:00' AND model='hmn')
+    ORDER BY
+      forecast_time`;
+
+  const sqlRuntime = `SELECT
+      runtime,
+      forecast_time,
+      ROUND(temperature_2m, 2) AS temp,
+      model
+    FROM
+      ${tabName}
+    WHERE
+      runtime = '2023-06-27 06:00:02'
+    ORDER BY
+      forecast_time`;
+
+  const [rows] = await connection.execute(sqlModelPoint).catch((error) => {
     throw error;
   });
   if (rows.length === 0) console.log("Empty rows! Check query params!");
   await connection.end();
   return {
     data: rows ?? [],
-    model,
   };
 };
-export const result = await query(model, reqTime);
+export const result = await query(model);
