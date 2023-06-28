@@ -28,21 +28,21 @@ export const query = async (model) => {
   const tabName = "data";
   let str = "";
   const dataFromFront = [
-    { model: "hmn", runTime: "2023-06-27 06:00:02" },
-    { model: "best_match", runTime: "2023-06-27 06:00:02" },
-    { model: "ecmwf_ifs04", runTime: "2023-06-27 06:00:02" },
-    { model: "gem_global", runTime: "2023-06-27 06:00:02" },
-    { model: "gfs_global", runTime: "2023-06-27 06:00:02" },
-    { model: "icon_eu", runTime: "2023-06-27 06:00:02" },
-    { model: "icon_global", runTime: "2023-06-27 06:00:02" },
-    { model: "jma_gsm", runTime: "2023-06-27 06:00:02" },
-    { model: "meteofrance_arpege_europe", runTime: "2023-06-27 06:00:02" },
-    { model: "meteofrance_arpege_world", runTime: "2023-06-27 06:00:02" },
+    { model: "hmn", runTime: "2023-06-28 06:00:02" },
+    { model: "best_match", runTime: "2023-06-28 06:00:02" },
+    { model: "ecmwf_ifs04", runTime: "2023-06-28 06:00:02" },
+    { model: "gem_global", runTime: "2023-06-28 06:00:02" },
+    { model: "gfs_global", runTime: "2023-06-28 06:00:02" },
+    { model: "icon_eu", runTime: "2023-06-28 06:00:02" },
+    { model: "icon_global", runTime: "2023-06-28 06:00:02" },
+    { model: "jma_gsm", runTime: "2023-06-28 06:00:02" },
+    { model: "meteofrance_arpege_europe", runTime: "2023-06-28 06:00:02" },
+    { model: "meteofrance_arpege_world", runTime: "2023-06-28 06:00:02" },
   ];
-  // dataFromFront.forEach(
-  //   ({ model, runTime }) =>
-  //     (str += `(runtime="${runTime}" AND model="${model}") OR `)
-  // );
+  dataFromFront.forEach(
+    ({ model, runTime }) =>
+      (str += `(runtime="${runTime}" AND model="${model}") OR `)
+  );
   str = str.slice(0, -4);
   const sqlModelRuntime = `
     SELECT
@@ -82,7 +82,7 @@ export const query = async (model) => {
     ORDER BY
       forecast_time`;
 
-  const [rows] = await connection.execute(sqlModelPoint).catch((error) => {
+  const [rows] = await connection.execute(sqlModelRuntime).catch((error) => {
     throw error;
   });
   if (rows.length === 0) console.log("Empty rows! Check query params!");
