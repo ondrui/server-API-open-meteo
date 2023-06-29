@@ -148,7 +148,7 @@ app.post("/forecast_time", async (req, res, next) => {
      * Second query base on result from first query.
      */
     let queryStr = "";
-    listRuntime.forEach((v) => (queryStr += `"${v.runtime.toISOString()}", `));
+    listRuntime.forEach((v) => (queryStr += `"${v.runtime}", `));
     queryStr = queryStr.slice(0, -2);
 
     const sqlSecond = `
