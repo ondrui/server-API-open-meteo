@@ -1,9 +1,11 @@
-import express from "express";
-import { createConnection } from "mysql2/promise";
-import "dotenv/config";
+const express = require("express");
+const mysql = require("mysql2/promise");
+const multer = require("multer");
+require("dotenv").config();
 
 const port = process.env.PORT ?? 3002;
 const app = express();
+const upload = multer();
 
 app.use(express.json());
 app.use(
@@ -13,19 +15,6 @@ app.use(
 );
 // db table name
 const tabName = "data";
-
-const connection = await createConnection({
-  host: process.env.HOST,
-  user: process.env.USER_DB,
-  password: process.env.PASSWORD_DB,
-  database: process.env.NAME_DB,
-  timezone: process.env.TIMEZONE_DB,
-});
-
-connection.ping(function (err) {
-  if (err) throw err;
-  console.log("Server responded to ping");
-});
 
 /** CORS setting with OPTIONS pre-flight handling */
 app.use((req, res, next) => {
@@ -114,8 +103,22 @@ app.get("/models", async (req, res) => {
 /**
  * POST one models, one forecast time --> all runtime
  */
-app.post("/forecast_time", async (req, res, next) => {
+app.post("/forecast_time",  upload.none(), async (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
+
+  const connection = await mysql.createConnection({
+    host: process.env.HOST,
+    user: process.env.USER_DB,
+    password: process.env.PASSWORD_DB,
+    database: process.env.NAME_DB,
+    timezone: process.env.TIMEZONE_DB,
+  });
+
+  connection.ping(function (err) {
+    if (err) throw err;
+    console.log("Server responded to ping");
+  });
+
 
   if (!req.body || !req.body.model || !req.body.forecast_time)
     return res.sendStatus(400);
@@ -148,7 +151,7 @@ app.post("/forecast_time", async (req, res, next) => {
      * Second query base on result from first query.
      */
     let queryStr = "";
-    listRuntime.forEach((v) => (queryStr += `"${v.runtime}", `));
+    listRuntime.forEach((v) => (queryStr += `"${v.runtime.toISOString()}", `));
     queryStr = queryStr.slice(0, -2);
 
     const sqlSecond = `
