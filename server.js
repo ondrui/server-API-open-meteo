@@ -103,7 +103,7 @@ app.get("/models", async (req, res) => {
 /**
  * POST one models, one forecast time --> all runtime
  */
-app.post("/forecast_time",  upload.none(), async (req, res, next) => {
+app.post("/forecast_time", upload.none(), async (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
 
   const connection = await mysql.createConnection({
@@ -119,15 +119,19 @@ app.post("/forecast_time",  upload.none(), async (req, res, next) => {
     console.log("Server responded to ping");
   });
 
-
   if (!req.body || !req.body.model || !req.body.forecast_time)
     return res.sendStatus(400);
   const { model, forecast_time } = req.body;
 
+  // Убираем разделитель Т из строки и проверяем сколько знаков
+  // в строке время.
+  str = forecast_time.split("T")[1];
+  str = str.length < 6 ? str + ":00" : str;
+  formatedTime = [forecast_time.split("T")[0], str].join(" ");
   try {
     const query = async (str) => {
       const [rows] = await connection.execute(str).catch((error) => {
-        console.log("fff", error);
+        console.log(error);
       });
       if (rows.length === 0) console.log("Empty rows! Check query params!");
       // await connection.end();
@@ -141,7 +145,7 @@ app.post("/forecast_time",  upload.none(), async (req, res, next) => {
     FROM
       ${tabName}
     WHERE
-      (forecast_time = '${forecast_time}' AND model='${model}')
+      (forecast_time = '${formatedTime}' AND model='${model}')
     ORDER BY
       forecast_time`;
 
@@ -151,7 +155,13 @@ app.post("/forecast_time",  upload.none(), async (req, res, next) => {
      * Second query base on result from first query.
      */
     let queryStr = "";
-    listRuntime.forEach((v) => (queryStr += `"${v.runtime.toISOString()}", `));
+    listRuntime.forEach((v) => {
+      const str =
+        typeof v.runtime === "string"
+          ? `"${v.runtime}", `
+          : `"${v.runtime.toISOString()}", `;
+      queryStr += str;
+    });
     queryStr = queryStr.slice(0, -2);
 
     const sqlSecond = `
