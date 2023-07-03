@@ -30,77 +30,6 @@ app.use((req, res, next) => {
 });
 
 /**
- * GET some models, one runtime
- */
-app.get("/models", async (req, res) => {
-  res.set("Access-Control-Allow-Origin", "*");
-  try {
-    /**
-     * Function query data mysql.
-     * @param model Weather model name.
-     * @param runTime API runtime.
-     * @returns Data object.
-     */
-    const query = async () => {
-      let str = "";
-      const dataFromFront = [
-        { model: "hmn", runTime: "2023-06-28 06:00:02" },
-        { model: "best_match", runTime: "2023-06-28 06:00:02" },
-        { model: "ecmwf_ifs04", runTime: "2023-06-28 06:00:02" },
-        { model: "gem_global", runTime: "2023-06-28 06:00:02" },
-        { model: "gfs_global", runTime: "2023-06-28 06:00:02" },
-        { model: "icon_eu", runTime: "2023-06-28 06:00:02" },
-        { model: "icon_global", runTime: "2023-06-28 06:00:02" },
-        { model: "jma_gsm", runTime: "2023-06-28 06:00:02" },
-        { model: "meteofrance_arpege_europe", runTime: "2023-06-28 06:00:02" },
-        { model: "meteofrance_arpege_world", runTime: "2023-06-28 06:00:02" },
-      ];
-      dataFromFront.forEach(
-        ({ model, runTime }) =>
-          (str += `(runtime="${runTime}" AND model="${model}") OR `)
-      );
-      str = str.slice(0, -4);
-      const sqlModelRuntime = `
-    SELECT
-      runtime,
-      forecast_time,
-      ROUND(temperature_2m, 2) AS temp,
-      model
-    FROM
-      ${tabName}
-    WHERE
-      ${str}
-    ORDER BY
-      forecast_time
-      `;
-
-      const [rows] = await connection
-        .execute(sqlModelRuntime)
-        .catch((error) => {
-          throw error;
-        });
-      if (rows.length === 0) console.log("Empty rows! Check query params!");
-      // await connection.end();
-      return rows ?? [];
-    };
-
-    const result = await query();
-    res.json(result);
-  } catch (err) {
-    console.error(`Error while query forecast_time`, err.message);
-    next(err);
-  }
-});
-
-/**
- * POST all models, one runtime
- */
-// app.get("/runtime", (req, res) => {
-//   res.set("Access-Control-Allow-Origin", "*");
-//   res.send(result);
-// });
-
-/**
  * POST one models, one forecast time --> all runtime
  */
 app.post("/forecast_time", upload.none(), async (req, res, next) => {
@@ -133,7 +62,10 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
       const [rows] = await connection.execute(str).catch((error) => {
         console.log(error);
       });
-      if (rows.length === 0) console.log("Empty rows! Check query params!");
+      if (rows.length === 0) {
+        console.log("Empty rows! Check query params!");
+        res.sendStatus(400);
+      }
       // await connection.end();
       return rows;
     };
@@ -188,6 +120,90 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
     next(err);
   }
 });
+
+/**
+ * GET some models, one runtime
+ */
+app.get("/models", async (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  const connection = await mysql.createConnection({
+    host: process.env.HOST,
+    user: process.env.USER_DB,
+    password: process.env.PASSWORD_DB,
+    database: process.env.NAME_DB,
+    timezone: process.env.TIMEZONE_DB,
+  });
+
+  connection.ping(function (err) {
+    if (err) throw err;
+    console.log("Server responded to ping");
+  });
+  try {
+    /**
+     * Function query data mysql.
+     * @param model Weather model name.
+     * @param runTime API runtime.
+     * @returns Data object.
+     */
+    const query = async () => {
+      let str = "";
+      const dataFromFront = [
+        { model: "hmn", runTime: "2023-07-02 06:00:02" },
+        { model: "best_match", runTime: "2023-07-02 06:00:02" },
+        { model: "ecmwf_ifs04", runTime: "2023-07-02 06:00:02" },
+        { model: "ecmwf_balchug", runTime: "2023-07-03 14:54:16" },
+        { model: "gem_global", runTime: "2023-07-02 06:00:02" },
+        { model: "gfs_global", runTime: "2023-07-02 06:00:02" },
+        { model: "icon_eu", runTime: "2023-07-02 06:00:02" },
+        { model: "icon_global", runTime: "2023-07-02 06:00:02" },
+        { model: "jma_gsm", runTime: "2023-07-02 06:00:02" },
+        { model: "meteofrance_arpege_europe", runTime: "2023-07-02 06:00:02" },
+        { model: "meteofrance_arpege_world", runTime: "2023-07-02 06:00:02" },
+      ];
+      dataFromFront.forEach(
+        ({ model, runTime }) =>
+          (str += `(runtime="${runTime}" AND model="${model}") OR `)
+      );
+      str = str.slice(0, -4);
+      const sqlModelRuntime = `
+    SELECT
+      runtime,
+      forecast_time,
+      ROUND(temperature_2m, 2) AS temp,
+      model
+    FROM
+      ${tabName}
+    WHERE
+      ${str}
+    ORDER BY
+      forecast_time
+      `;
+
+      const [rows] = await connection
+        .execute(sqlModelRuntime)
+        .catch((error) => {
+          throw error;
+        });
+      if (rows.length === 0) console.log("Empty rows! Check query params!");
+      // await connection.end();
+      return rows ?? [];
+    };
+
+    const result = await query();
+    res.json(result);
+  } catch (err) {
+    console.error(`Error while query forecast_time`, err.message);
+    next(err);
+  }
+});
+
+/**
+ * POST all models, one runtime
+ */
+// app.get("/runtime", (req, res) => {
+//   res.set("Access-Control-Allow-Origin", "*");
+//   res.send(result);
+// });
 
 app.listen(port, () => {
   console.log(`Server started at http://localhost:${port}`);
