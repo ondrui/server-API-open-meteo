@@ -52,12 +52,12 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
     return res.sendStatus(400);
   const { model, forecast_time } = req.body;
 
+  // Проверяем данные с фронта.
   // Убираем разделитель Т из строки и проверяем сколько знаков
   // в строке время.
-  let timeSection = forecast_time.split("T")[1];
-  const dateSection = forecast_time.split("T")[0];
-  timeSection = timeSection.length < 6 ? timeSection + ":00" : timeSection;
-  formatedTime = [dateSection, timeSection].join(" ");
+  const [dateSection, timeSection] = forecast_time.split("T");
+  const timeSectionFormated = timeSection.length < 6 ? timeSection + ":00" : timeSection;
+  const formatedDateimeStr = [dateSection, timeSectionFormated].join(" ");
   try {
     const query = async (str) => {
       const [rows] = await connection.execute(str).catch((error) => {
@@ -78,7 +78,7 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
     FROM
       ${tabName}
     WHERE
-      (forecast_time = '${forecast_time}' AND model='${model}')
+      (forecast_time = '${formatedDateimeStr}' AND model='${model}')
     ORDER BY
       forecast_time`;
 
@@ -95,6 +95,7 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
           : `"${v.runtime.toISOString()}", `;
       queryStr += str;
     });
+    //
     queryStr = queryStr.slice(0, -2);
 
     const sqlSecond = `
