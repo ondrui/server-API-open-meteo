@@ -54,9 +54,10 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
 
   // Убираем разделитель Т из строки и проверяем сколько знаков
   // в строке время.
-  str = forecast_time.split("T")[1];
-  str = str.length < 6 ? str + ":00" : str;
-  formatedTime = [forecast_time.split("T")[0], str].join(" ");
+  let timeSection = forecast_time.split("T")[1];
+  const dateSection = forecast_time.split("T")[0];
+  timeSection = timeSection.length < 6 ? timeSection + ":00" : timeSection;
+  formatedTime = [dateSection, timeSection].join(" ");
   try {
     const query = async (str) => {
       const [rows] = await connection.execute(str).catch((error) => {
@@ -73,11 +74,11 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
      * First query gets list runtime.
      */
     const sqlFirst = `SELECT
-      runtime
+      request_time
     FROM
       ${tabName}
     WHERE
-      (forecast_time = '${formatedTime}' AND model='${model}')
+      (forecast_time = '${forecast_time}' AND model='${model}')
     ORDER BY
       forecast_time`;
 
