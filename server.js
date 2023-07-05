@@ -46,11 +46,6 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
       // dateStrings: true,
     });
 
-    connection.ping(function (err) {
-      if (err) throw err;
-      console.log("Server responded to ping");
-    });
-
     // Проверяем данные с фронта.
 
     //Получаем все уникальные значения из колонки "model" таблицы "data".
@@ -66,19 +61,21 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
 
     switch (true) {
       case !req.body:
+        res.sendStatus(400);
         throw new Error(`Check query params!`);
       case !arrValidateName.includes(model):
+        res.sendStatus(400);
         throw new Error(`Check query params model: '${model}'!`);
       case !req.body.forecast_time:
+        res.sendStatus(400);
         throw new Error(
           `Check query params forecast_time: '${forecast_time}'!`
         );
       case !req.body.forecast_date:
+        res.sendStatus(400);
         throw new Error(
           `Check query params forecast_time: '${forecast_date}'!`
         );
-      default:
-        break;
     }
 
     // if (
