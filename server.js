@@ -1,6 +1,7 @@
 const express = require("express");
 const mysql = require("mysql2/promise");
 const multer = require("multer");
+const { query } = require("./function");
 require("dotenv").config();
 
 const port = process.env.PORT ?? 3002;
@@ -14,7 +15,7 @@ app.use(
   })
 );
 // db table name
-const tabName = "data";
+const TAB_NAME_DB = "data";
 
 /** CORS setting with OPTIONS pre-flight handling */
 app.use((req, res, next) => {
@@ -35,85 +36,110 @@ app.use((req, res, next) => {
 app.post("/forecast_time", upload.none(), async (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
 
-  const connection = await mysql.createConnection({
-    host: process.env.HOST,
-    user: process.env.USER_DB,
-    password: process.env.PASSWORD_DB,
-    database: process.env.NAME_DB,
-    timezone: process.env.TIMEZONE_DB,
-  });
-
-  connection.ping(function (err) {
-    if (err) throw err;
-    console.log("Server responded to ping");
-  });
-
-  if (!req.body || !req.body.model || !req.body.forecast_time)
-    return res.sendStatus(400);
-  const { model, forecast_time } = req.body;
-
-  // Проверяем данные с фронта.
-  // Убираем разделитель Т из строки и проверяем сколько знаков
-  // в строке время.
-  const [dateSection, timeSection] = forecast_time.split("T");
-  const timeSectionFormated = timeSection.length < 6 ? timeSection + ":00" : timeSection;
-  const formatedDateimeStr = [dateSection, timeSectionFormated].join(" ");
   try {
-    const query = async (str) => {
-      const [rows] = await connection.execute(str).catch((error) => {
-        console.log(error);
-      });
-      if (rows.length === 0) {
-        console.log("Empty rows! Check query params!");
-        res.sendStatus(400);
-      }
-      // await connection.end();
-      return rows;
-    };
+    const connection = await mysql.createConnection({
+      host: process.env.HOST,
+      user: process.env.USER_DB,
+      password: process.env.PASSWORD_DB,
+      database: process.env.NAME_DB,
+      timezone: process.env.TIMEZONE_DB,
+      // dateStrings: true,
+    });
+
+    connection.ping(function (err) {
+      if (err) throw err;
+      console.log("Server responded to ping");
+    });
+
+    // Проверяем данные с фронта.
+
+    //Получаем все уникальные значения из колонки "model" таблицы "data".
+    const sqlUniqueModelName = `
+      SELECT DISTINCT
+        model
+      FROM
+        ${TAB_NAME_DB}
+    `;
+    const listUniqueModelName = await query(sqlUniqueModelName, connection);
+    const arrValidateName = listUniqueModelName.map((v) => v.model);
+    const { model, forecast_time, forecast_date } = req.body;
+
+    switch (true) {
+      case !req.body:
+        throw new Error(`Check query params!`);
+      case !arrValidateName.includes(model):
+        throw new Error(`Check query params model: '${model}'!`);
+      case !req.body.forecast_time:
+        throw new Error(
+          `Check query params forecast_time: '${forecast_time}'!`
+        );
+      case !req.body.forecast_date:
+        throw new Error(
+          `Check query params forecast_time: '${forecast_date}'!`
+        );
+      default:
+        break;
+    }
+
+    // if (
+    //   !req.body ||
+    //   !arrValidateName.includes(model) ||
+    //   !req.body.forecast_time ||
+    //   !req.body.forecast_date
+    // ) {
+    //   console.log(`Check query params '${model}'!`);
+    //   res.sendStatus(400);
+    //   throw new Error();
+    // }
+
     /**
-     * First query gets list runtime.
+     * First query string - getting a list of request times.
      */
+    const datetimeStr = forecast_date + " " + forecast_time;
     const sqlFirst = `SELECT
       request_time
     FROM
-      ${tabName}
+      ${TAB_NAME_DB}
     WHERE
-      (forecast_time = '${formatedDateimeStr}' AND model='${model}')
+      (forecast_time = '${datetimeStr}' AND model='${model}')
     ORDER BY
       forecast_time`;
 
-    const listRuntime = await query(sqlFirst);
+    const listRuntime = await query(sqlFirst, connection);
 
     /**
-     * Second query base on result from first query.
+     * Second query string - base on result from first query.
+     * Remove the last comma from a string.
      */
     let queryStr = "";
     listRuntime.forEach((v) => {
       const str =
-        typeof v.runtime === "string"
-          ? `"${v.runtime}", `
-          : `"${v.runtime.toISOString()}", `;
+        typeof v.request_time === "string"
+          ? `"${v.request_time}", `
+          : `"${v.request_time.toISOString()}", `;
       queryStr += str;
     });
-    //
-    queryStr = queryStr.slice(0, -2);
+    const lastCommaRemoved = queryStr.endsWith(", ")
+      ? queryStr.slice(0, -2)
+      : queryStr;
 
     const sqlSecond = `
     SELECT
       runtime,
+      request_time,
       forecast_time,
       ROUND(temperature_2m, 2) AS temp,
       model
     FROM
-      ${tabName}
+      ${TAB_NAME_DB}
     WHERE
-      runtime IN (${queryStr}) AND model='${model}'
+      request_time IN (${lastCommaRemoved}) AND model='${model}'
     ORDER BY
-      forecast_time`;
+      request_time`;
 
-    const result = await query(sqlSecond);
+    const result = await query(sqlSecond, connection);
 
-    // await connection.end();
+    await connection.end();
 
     res.json(result);
   } catch (err) {
@@ -174,7 +200,7 @@ app.get("/models", async (req, res) => {
       ROUND(temperature_2m, 2) AS temp,
       model
     FROM
-      ${tabName}
+      ${TAB_NAME_DB}
     WHERE
       ${str}
     ORDER BY
