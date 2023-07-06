@@ -55,14 +55,20 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
       FROM
         ${TAB_NAME_DB}
     `;
-    const listUniqueModelName = await query(sqlUniqueModelName, connection);
+    const listUniqueModelName = await query(
+      connection,
+      res,
+      sqlUniqueModelName
+    );
     const arrValidateName = listUniqueModelName.map((v) => v.model);
     const { model, forecast_time, forecast_date } = req.body;
 
     switch (true) {
-      case !req.body:
+      case req.body &&
+        Object.keys(req.body).length === 0 &&
+        req.body.constructor === Object:
         res.sendStatus(400);
-        throw new Error(`Check query params!`);
+        throw new Error(`Check query params: all empty!`);
       case !arrValidateName.includes(model):
         res.sendStatus(400);
         throw new Error(`Check query params model: '${model}'!`);
@@ -78,51 +84,36 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
         );
     }
 
-    // if (
-    //   !req.body ||
-    //   !arrValidateName.includes(model) ||
-    //   !req.body.forecast_time ||
-    //   !req.body.forecast_date
-    // ) {
-    //   console.log(`Check query params '${model}'!`);
-    //   res.sendStatus(400);
-    //   throw new Error();
-    // }
-
-    /**
-     * First query string - getting a list of request times.
-     */
     const datetimeStr = forecast_date + " " + forecast_time;
     const sqlFirst = `SELECT
       request_time
     FROM
       ${TAB_NAME_DB}
     WHERE
-      (forecast_time = '${datetimeStr}' AND model='${model}')
+      (forecast_time = ? AND model = ?)
     ORDER BY
       forecast_time`;
+    const insertsFirst = [datetimeStr, model];
+    const sqlFirstFormated = mysql.format(sqlFirst, insertsFirst);
 
-    const listRuntime = await query(sqlFirst, connection);
+    const listRuntime = await query(connection, res, sqlFirstFormated);
 
     /**
      * Second query string - base on result from first query.
-     * Remove the last comma from a string.
      */
-    let queryStr = "";
-    listRuntime.forEach((v) => {
-      const str =
-        typeof v.request_time === "string"
-          ? `"${v.request_time}", `
-          : `"${v.request_time.toISOString()}", `;
-      queryStr += str;
-    });
-    const lastCommaRemoved = queryStr.endsWith(", ")
-      ? queryStr.slice(0, -2)
-      : queryStr;
+
+    const listRuntimeFormated = listRuntime.map(
+      (v) =>
+        (v =
+          typeof v.request_time === "string"
+            ? v.request_time
+            : v.request_time.toISOString().slice(0, -5))
+    );
+
+    const insertsSecond = [listRuntimeFormated, model];
 
     const sqlSecond = `
     SELECT
-      runtime,
       request_time,
       forecast_time,
       ROUND(temperature_2m, 2) AS temp,
@@ -130,11 +121,13 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
     FROM
       ${TAB_NAME_DB}
     WHERE
-      request_time IN (${lastCommaRemoved}) AND model='${model}'
+      request_time IN (?) AND model=?
     ORDER BY
       request_time`;
 
-    const result = await query(sqlSecond, connection);
+    const sqlSecondFormated = mysql.format(sqlSecond, insertsSecond);
+
+    const result = await query(connection, res, sqlSecondFormated);
 
     await connection.end();
 
@@ -149,72 +142,39 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
 /**
  * GET some models, one runtime
  */
-app.get("/models", async (req, res) => {
+app.post("/models", upload.none(), async (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
-  const connection = await mysql.createConnection({
-    host: process.env.HOST,
-    user: process.env.USER_DB,
-    password: process.env.PASSWORD_DB,
-    database: process.env.NAME_DB,
-    timezone: process.env.TIMEZONE_DB,
-  });
-
-  connection.ping(function (err) {
-    if (err) throw err;
-    console.log("Server responded to ping");
-  });
   try {
-    /**
-     * Function query data mysql.
-     * @param model Weather model name.
-     * @param runTime API runtime.
-     * @returns Data object.
-     */
-    const query = async () => {
-      let str = "";
-      const dataFromFront = [
-        { model: "hmn", runTime: "2023-07-02 06:00:02" },
-        { model: "best_match", runTime: "2023-07-02 06:00:02" },
-        { model: "ecmwf_ifs04", runTime: "2023-07-02 06:00:02" },
-        { model: "ecmwf_balchug", runTime: "2023-07-03 14:54:16" },
-        { model: "gem_global", runTime: "2023-07-02 06:00:02" },
-        { model: "gfs_global", runTime: "2023-07-02 06:00:02" },
-        { model: "icon_eu", runTime: "2023-07-02 06:00:02" },
-        { model: "icon_global", runTime: "2023-07-02 06:00:02" },
-        { model: "jma_gsm", runTime: "2023-07-02 06:00:02" },
-        { model: "meteofrance_arpege_europe", runTime: "2023-07-02 06:00:02" },
-        { model: "meteofrance_arpege_world", runTime: "2023-07-02 06:00:02" },
-      ];
-      dataFromFront.forEach(
-        ({ model, runTime }) =>
-          (str += `(runtime="${runTime}" AND model="${model}") OR `)
-      );
-      str = str.slice(0, -4);
-      const sqlModelRuntime = `
+    const connection = await mysql.createConnection({
+      host: process.env.HOST,
+      user: process.env.USER_DB,
+      password: process.env.PASSWORD_DB,
+      database: process.env.NAME_DB,
+      timezone: process.env.TIMEZONE_DB,
+    });
+
+    const insertObj = { request_time: req.body.request_time };
+
+    const sqlModelRuntime = `
     SELECT
-      runtime,
+      request_time,
       forecast_time,
       ROUND(temperature_2m, 2) AS temp,
       model
     FROM
       ${TAB_NAME_DB}
     WHERE
-      ${str}
+      ?
     ORDER BY
       forecast_time
       `;
 
-      const [rows] = await connection
-        .execute(sqlModelRuntime)
-        .catch((error) => {
-          throw error;
-        });
-      if (rows.length === 0) console.log("Empty rows! Check query params!");
-      // await connection.end();
-      return rows ?? [];
-    };
-
-    const result = await query();
+    const sqlModelRuntimeFormated = mysql.format(
+      sqlModelRuntime,
+      insertObj
+    );
+    const result = await query(connection, res, sqlModelRuntimeFormated);
+    await connection.end();
     res.json(result);
   } catch (err) {
     console.error(`Error while query forecast_time`, err.message);
