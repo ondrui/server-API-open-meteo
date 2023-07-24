@@ -17,6 +17,17 @@ app.use(
 // db table name
 const TAB_NAME_DB = "data";
 
+/**
+ * Remove milliseconds and the suffix Z from datetime string ('.000Z').
+ * @param {string} str Date Time String. In format 'YYYY-MM-DDTHH:mm:ss.sssZ'
+ * @param {number} num default value -5.
+ * @returns
+ */
+const removeMsZ = (str, num = -5) => str.slice(0, num);
+// Helper Functions
+const formatedDatetime = (date) =>
+  typeof date === "string" ? removeMsZ(date) : removeMsZ(date.toISOString());
+
 /** CORS setting with OPTIONS pre-flight handling */
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -84,6 +95,9 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
         );
     }
 
+    /**
+     * Запрашиваем все даты скачивания по модели и точке прогноза.
+     */
     const datetimeStr = forecast_date + " " + forecast_time;
     const sqlFirst = `SELECT
       request_time
@@ -96,21 +110,17 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
     const insertsFirst = [datetimeStr, model];
     const sqlFirstFormated = mysql.format(sqlFirst, insertsFirst);
 
-    const listRuntime = await query(connection, res, sqlFirstFormated);
+    const listRequestTime = await query(connection, res, sqlFirstFormated);
 
     /**
      * Second query string - base on result from first query.
      */
 
-    const listRuntimeFormated = listRuntime.map(
-      (v) =>
-        (v =
-          typeof v.request_time === "string"
-            ? v.request_time
-            : v.request_time.toISOString().slice(0, -5))
+    const listRequestTimeFormated = listRequestTime.map(
+      (v) => (v = formatedDatetime(v.request_time))
     );
 
-    const insertsSecond = [listRuntimeFormated, model];
+    const insertsSecond = [listRequestTimeFormated, model];
 
     const sqlSecond = `
     SELECT
@@ -123,7 +133,7 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
     WHERE
       request_time IN (?) AND model=?
     ORDER BY
-      request_time`;
+      forecast_time`;
 
     const sqlSecondFormated = mysql.format(sqlSecond, insertsSecond);
 
@@ -169,10 +179,7 @@ app.post("/models", upload.none(), async (req, res, next) => {
       forecast_time
       `;
 
-    const sqlModelRuntimeFormated = mysql.format(
-      sqlModelRuntime,
-      insertObj
-    );
+    const sqlModelRuntimeFormated = mysql.format(sqlModelRuntime, insertObj);
     const result = await query(connection, res, sqlModelRuntimeFormated);
     await connection.end();
     res.json(result);
