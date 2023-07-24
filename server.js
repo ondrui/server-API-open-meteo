@@ -42,7 +42,7 @@ app.use((req, res, next) => {
 });
 
 /**
- * POST one models, one forecast time --> all runtime
+ * POST one models, one forecast time --> all request time
  */
 app.post("/forecast_time", upload.none(), async (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -150,7 +150,7 @@ app.post("/forecast_time", upload.none(), async (req, res, next) => {
 });
 
 /**
- * GET some models, one runtime
+ * GET some models, one request time
  */
 app.post("/models", upload.none(), async (req, res, next) => {
   res.set("Access-Control-Allow-Origin", "*");
@@ -165,7 +165,7 @@ app.post("/models", upload.none(), async (req, res, next) => {
 
     const insertObj = { request_time: req.body.request_time };
 
-    const sqlModelRuntime = `
+    const sqlModelRequestTime = `
     SELECT
       request_time,
       forecast_time,
@@ -179,8 +179,8 @@ app.post("/models", upload.none(), async (req, res, next) => {
       forecast_time
       `;
 
-    const sqlModelRuntimeFormated = mysql.format(sqlModelRuntime, insertObj);
-    const result = await query(connection, res, sqlModelRuntimeFormated);
+    const sqlModelRequestTimeFormated = mysql.format(sqlModelRequestTime, insertObj);
+    const result = await query(connection, res, sqlModelRequestTimeFormated);
     await connection.end();
     res.json(result);
   } catch (err) {
@@ -188,14 +188,6 @@ app.post("/models", upload.none(), async (req, res, next) => {
     next(err);
   }
 });
-
-/**
- * POST all models, one runtime
- */
-// app.get("/runtime", (req, res) => {
-//   res.set("Access-Control-Allow-Origin", "*");
-//   res.send(result);
-// });
 
 app.listen(port, () => {
   console.log(`Server started at http://localhost:${port}`);
